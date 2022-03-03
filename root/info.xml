@@ -1,0 +1,6 @@
+<extension version="1">
+  <name>AirflowDamperTesting</name>
+  <description>Evaluates airflow responsiveness to damper commands according to design parameters.</description>
+  <version>0.1.0</version>
+  <vendor>Automatic Controls Equipment Systems, Inc.</vendor>
+</extension>
