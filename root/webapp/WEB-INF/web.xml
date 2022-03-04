@@ -16,7 +16,25 @@
   </servlet>
   <servlet-mapping>
     <servlet-name>MainServlet</servlet-name>
-    <url-pattern>/MainServlet</url-pattern>
+    <url-pattern>/index</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>Records</servlet-name>
+    <servlet-class>aces.webctrl.airflow.Records</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>Records</servlet-name>
+    <url-pattern>/records</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>Results</servlet-name>
+    <servlet-class>aces.webctrl.airflow.Results</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>Results</servlet-name>
+    <url-pattern>/results</url-pattern>
   </servlet-mapping>
 
   <security-constraint>

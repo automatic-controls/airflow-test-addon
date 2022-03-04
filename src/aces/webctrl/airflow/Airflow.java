@@ -1,3 +1,8 @@
+/*
+  BSD 3-Clause License
+  Copyright (c) 2022, Automatic Controls Equipment Systems, Inc.
+  Contributors: Cameron Vogt (@cvogt729)
+*/
 package aces.webctrl.airflow;
 import com.controlj.green.addonsupport.access.*;
 import com.controlj.green.addonsupport.access.node.*;
@@ -21,6 +26,7 @@ public class Airflow {
   private volatile boolean closeSuccess = false;
   private volatile boolean openSuccess = false;
   private volatile boolean attempted = false;
+  private volatile String equipment = null;
   /**
    * @return the error associated with this airflow, or {@code null} if no error has occurred.
    */
@@ -90,15 +96,22 @@ public class Airflow {
     return maxFlowValue;
   }
   /**
+   * @return an identifier string which may be used to get the equipment Location corresponding to this airflow microblock.
+   */
+  public String getEquipment(){
+    return equipment;
+  }
+  /**
    * Maps relevant airflow microblock nodes.
    * May be used inside a readAction without field-access.
    * @param root is any {@code Location} with a node-type of 270.
    */
-  public Airflow(Location root){
-    if (root==null){
-      setError(new NullPointerException("Airflow root location was null."));
+  public Airflow(Location root, Location equipment){
+    if (root==null || equipment==null){
+      setError(new NullPointerException("Airflow construction parameters were null."));
       return;
     }
+    this.equipment = equipment.getPersistentLookupString(true);
     for (Location l:root.getChildren()){
       if (l.getReferenceName().equals("flow_tab")){
         int x = 0;
@@ -151,7 +164,7 @@ public class Airflow {
    * @param openTolerance when the damper position is set to 100%, verify that airflow is within this percentage of idealMax
    */
   public void test(final Container<Boolean> cancel, final long timeout, final int closeTolerance, final int openTolerance){
-    if (error!=null && !cancel.x && !attempted){
+    if (error==null && !cancel.x && !attempted){
       attempted = true;
       startTime = System.currentTimeMillis();
       try{

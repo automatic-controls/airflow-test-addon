@@ -1,0 +1,265 @@
+<!--
+  BSD 3-Clause License
+  Copyright (c) 2022, Automatic Controls Equipment Systems, Inc.
+  Contributors: Cameron Vogt (@cvogt729)
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>
+      Airflow Testing
+    </title>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+    <script>
+      function decode(str){
+        const list = [];
+        let token = "";
+        let b = false;
+        for (var i=0;i<str.length;++i){
+          const c = str.charAt(i);
+          if (b || c!=='\\'){
+            if (!b && c===';'){
+              list.push(token);
+              token = "";
+            }else{
+              token+=c;
+              b = false;
+            }
+          }else{
+            b = true;
+          }
+        }
+        if (token.length!==0){
+          list.push(token);
+        }
+        return list;
+      }
+      function encode(str){
+        let sb = "";
+        for (var i=0;i<str.length;++i){
+          const c = str.charAt(i);
+          if (c==='\\' || c===';'){
+            sb+='\\';
+          }
+          sb+=c;
+        }
+        return sb;
+      }
+      function validatePercent(obj){
+        let str = obj.value.replace(/\D/g,"");
+        if (str.length>0){
+          while (str.length>0 && str.charAt(0)==='0'){
+            str = str.substring(1);
+          }
+          if (str.length>2){
+            str = "100";
+          }
+        }
+        if (str.length===0){
+          str = "0";
+        }
+        obj.value = str;
+      }
+      function validateRuntime(obj){
+        let str = obj.value;
+        if (str.length>0){
+          str = str.replace(/\D/g,"");
+          while (str.length>1 && str.charAt(0)==='0'){
+            str = str.substring(1);
+          }
+          if (str.length>18){
+            str = str.substring(str.length-18);
+          }
+        }
+        if (str.length===0){
+          str = "0";
+        }
+        obj.value = str;
+      }
+      function validateTimeout(obj){
+        let str = obj.value;
+        if (str.length>0){
+          str = str.replace(/\D/g,"");
+          while (str.length>1 && str.charAt(0)==='0'){
+            str = str.substring(1);
+          }
+          if (str.length>7){
+            str = "3600000";
+          }else if (str.length===7){
+            let num = Number(str);
+            if (num>3600000){
+              num = 3600000;
+            }
+            str = String(num);
+          }
+        }
+        if (str.length===0){
+          str = "0";
+        }
+        obj.value = str;
+      }
+      function setupNode(n){
+        const m = document.createElement("DIV");
+        m.style.marginLeft = "1em";
+        n.parentNode.insertBefore(m, n.nextSibling);
+        const checkbox = document.createElement("INPUT");
+        checkbox.type = "checkbox";
+        n.parentNode.insertBefore(checkbox,n);
+        n.onmouseover = function(){
+          if (mouseDown){
+            checkbox.checked^=true;
+            checkbox.onchange();
+          }
+        };
+        checkbox.onchange = function(){
+          var x;
+          if (checkbox.checked){
+            if (!n.expanded){
+              n.expanded = true;
+              n.expand();
+            }
+            let arr = m.getElementsByTagName("INPUT");
+            for (var i=0;i<arr.length;++i){
+              x = arr[i];
+              if (!x.checked){
+                x.checked = true;
+                x.onchange();
+              }
+            }
+          }else if (!n.root){
+            x = n.parentNode.previousSibling.previousSibling;
+            if (x.checked){
+              x.checked = false;
+              x.onchange();
+            }
+          }
+        };
+        checkbox.checked = !n.root && n.parentNode.previousSibling.previousSibling.checked;
+        n.expanded = false;
+        n.expand = function(){
+          const req = new XMLHttpRequest();
+          req.open("POST","__PREFIX__index", true);
+          req.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+          req.onreadystatechange = function(){
+            if (this.readyState===4 && this.status===200){
+              const arr = decode(this.responseText);
+              for (var i=0;i<arr.length;++i){
+                const x = document.createElement("BUTTON");
+                x.innerText = arr[i];
+                x.path = arr[++i];
+                m.appendChild(x);
+                setupNode(x);
+              }
+            }
+          };
+          req.send("type=expand&ID="+n.path);
+        };
+        n.onclick = function(){
+          n.expanded^=true;
+          if (n.expanded){
+            n.expand();
+          }else{
+            while (m.firstChild){
+              m.removeChild(m.lastChild);
+            }
+          }
+        };
+      }
+      function getData(div){
+        let str = "";
+        let arr = div.children;
+        var x;
+        for (var i=0;i<arr.length;++i){
+          x = arr[i];
+          if (x.tagName==="BUTTON"){
+            if (x.previousSibling.checked){
+              str = str.concat(encode(x.path), ';');
+            }else{
+              str = str.concat(getData(x.nextSibling));
+            }
+          }
+        }
+        return str;
+      }
+      function initiate(button){
+        button.disabled = true;
+        validateRuntime(inputDelay);
+        validateTimeout(inputTimeout);
+        validatePercent(inputClose);
+        validatePercent(inputOpen);
+        const delay = inputDelay.value;
+        const timeout = inputTimeout.value;
+        const close = inputClose.value;
+        const open = inputOpen.value;
+        const data = getData(rootDiv);
+        if (data.length===0){
+          alert("Please select a few locations on the geographic tree.");
+          button.disabled = false;
+        }else{
+          const req = new XMLHttpRequest();
+          req.open("POST","__PREFIX__index", true);
+          req.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+          req.onreadystatechange = function(){
+            if (this.readyState===4){
+              if (this.status===200){
+                window.location.href = "__PREFIX__results?ID="+this.responseText;
+              }else{
+                alert("Error Code "+this.status);
+              }
+              button.disabled = false;
+            }
+          };
+          req.send(
+            "type=create"+
+            "&data="+encodeURIComponent(data)+
+            "&delay="+encodeURIComponent(delay)+
+            "&timeout="+encodeURIComponent(timeout)+
+            "&close="+encodeURIComponent(close)+
+            "&open="+encodeURIComponent(open)
+          );
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div style="text-align:center">
+      <h1>Airflow Damper Testing</h1>
+      <label for="inputDelay">Execution Delay:</label>
+      <input id="inputDelay" class="e" oninput="validateRuntime(this)" value="0" size="15" style="text-align:center"> milliseconds
+      <br>
+      <label for="inputTimeout">Damper Response Timeout:</label>
+      <input id="inputTimeout" class="e" oninput="validateTimeout(this)" value="120000" size="4" style="text-align:center"> milliseconds
+      <br>
+      <label for="inputClose">Closed Tolerance:</label>
+      <input id="inputClose" class="e" oninput="validatePercent(this)" value="5" size="1" style="text-align:center">%
+      <br>
+      <label for="inputOpen">Opened Tolerance:</label>
+      <input id="inputOpen" class="e" oninput="validatePercent(this)" value="10" size="1" style="text-align:center">%
+      <br><br>
+      <button class="e" onclick="initiate(this)">Initiate Test</button><br>
+      <a href="__PREFIX__records">Airflow Test Records</a><br>
+      <a target="_blank" href="https://github.com/automatic-controls/airflow-test-addon/blob/main/README.md">Documentation</a><br>
+    </div>
+    <script>
+      var mouseDown = false;
+      document.onmousedown = function(){
+        mouseDown = true;
+      };
+      document.onmouseup = function(){
+        mouseDown = false;
+      };
+      var rootDiv = document.createElement("DIV");
+      rootDiv.style.float = "left";
+      rootDiv.style.padding = "1em";
+      rootDiv.style.userSelect = "none";
+      rootDiv.style.webkitUserSelect = "none";
+      let root = document.createElement("BUTTON");
+      root.innerText = "__GEO_NAME__";
+      root.path = "__GEO_PATH__";
+      rootDiv.appendChild(root);
+      root.root = true;
+      setupNode(root);
+      document.body.appendChild(rootDiv);
+    </script>
+  </body>
+</html>

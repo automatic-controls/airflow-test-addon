@@ -1,3 +1,8 @@
+/*
+  BSD 3-Clause License
+  Copyright (c) 2022, Automatic Controls Equipment Systems, Inc.
+  Contributors: Cameron Vogt (@cvogt729)
+*/
 package aces.webctrl.airflow;
 import com.controlj.green.addonsupport.access.*;
 import java.util.*;
@@ -17,11 +22,43 @@ public class TaskCollection {
   private volatile int openTolerance;
   private volatile boolean completed = false;
   private volatile String operator;
+  private volatile int successRate = 0;
+  private volatile int successCount = 0;
+  /**
+   * @return the wait period in milliseconds between changing damper positions and measuring the airflow response.
+   */
+  public long getTimeout(){
+    return timeout;
+  }
+  /**
+   * @return an integer between 1 and 100 (inclusive) that indicates a percentage for how near the airflow should be to 0 when the damper position is set to 0%.
+   */
+  public int getCloseTolerance(){
+    return closeTolerance;
+  }
+  /**
+   * @return an integer between 1 and 100 (inclusive) that indicates a percentage for how near the airflow should be to the ideal maximum when the damper position is set to 100%.
+   */
+  public int getOpenTolerance(){
+    return openTolerance;
+  }
+  /**
+   * @return whether this task collection has been started.
+   */
+  public boolean isStarted(){
+    return index!=-1;
+  }
+  /**
+   * @return an integer between 0 and 100 indicating the percentage of tests in this {@code TaskCollection} which completed successfully.
+   */
+  public int getSuccessRate(){
+    return successRate;
+  }
   /**
    * Constructs a new {@code TaskCollection} with the given parameters.
    * @param arr contains location identifiers to search under where each identifier has been retrieved as a result of {@code Location.getPersistentLookupString(true)}.
    * @param runtime specifies the desired execution time for this collection of airflow tests.
-   * @param timeout specifies the wait period between changing damper positions and measuring the airflow response.
+   * @param timeout specifies the wait period in milliseconds between changing damper positions and measuring the airflow response.
    * @param closeTolerance is an integer between 1 and 100 (inclusive) that indicates a percentage for how near the airflow should be to 0 when the damper position is set to 0%.
    * @param openTolerator is an integer between 1 and 100 (inclusive) that indicates a percentage for how near the airflow should be to the ideal maximum when the damper position is set to 100%.
    * @param operator specifies the username of the operator which has initiated this collection of airflow tests.
@@ -87,10 +124,18 @@ public class TaskCollection {
       return null;
     }else{
       final Airflow flow = flows.get(index);
-      final boolean finish = index+1==flows.size();
+      final int i = index+1;
+      final boolean finish = i==flows.size();
       return new Runnable(){
         public void run(){
           flow.test(cancel, timeout, closeTolerance, openTolerance);
+          if (flow.closeTestSuccess()){
+            ++successCount;
+          }
+          if (flow.openTestSuccess()){
+            ++successCount;
+          }
+          successRate = successCount*100/(i<<1);
           if (finish){
             completed = true;
           }
@@ -109,6 +154,9 @@ public class TaskCollection {
    */
   public void cancel(){
     cancel.x = true;
+    if (isStarted() && !isCompleted()){
+      Initializer.interrupt();
+    }
     completed = true;
   }
   /**
@@ -124,7 +172,7 @@ public class TaskCollection {
     return completed;
   }
   /**
-   * @return an estimate of the start time for this collection of airflow tests.
+   * @return an estimate of the start time for this collection of airflow tests as compared to {@code System.currentTimeMillis()}.
    */
   public long getRuntime(){
     return runtime;
@@ -137,10 +185,10 @@ public class TaskCollection {
     if (type==LocationType.Equipment){
       for (Location l:loc.getChildren()){
         if (l.toNode().eval(".node-type").equals("270")){
-          flows.add(new Airflow(l));
+          flows.add(new Airflow(l,loc));
         }
       }
-    }else if (type==LocationType.Area || type==LocationType.System){
+    }else if (type==LocationType.Area || type==LocationType.System || type==LocationType.Directory){
       for (Location l:loc.getChildren()){
         recurse(l);
       }

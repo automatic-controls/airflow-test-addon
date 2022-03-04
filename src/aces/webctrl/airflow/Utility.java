@@ -5,6 +5,7 @@
 */
 package aces.webctrl.airflow;
 import java.io.*;
+import java.util.*;
 public class Utility {
   /**
    * Freezes the current thread until the given time has been reached as compared with {@code System.currentTimeMillis()}.
@@ -72,6 +73,35 @@ public class Utility {
       sb.append(c);
     }
     return sb.toString();
+  }
+  /**
+   * @return a list of strings decoded from the input parameter.
+   */
+  public static ArrayList<String> decodeAJAX(String str){
+    final ArrayList<String> list = new ArrayList<String>();
+    final int len = str.length();
+    if (len==0){ return list; }
+    final StringBuilder sb = new StringBuilder();
+    char c;
+    boolean b = false;
+    for (int i=0;i<len;++i){
+      c = str.charAt(i);
+      if (b || c!='\\'){
+        if (!b && c==';'){
+          list.add(sb.toString());
+          sb.setLength(0);
+        }else{
+          sb.append(c);
+          b = false;
+        }
+      }else{
+        b = true;
+      }
+    }
+    if (sb.length()>0){
+      list.add(sb.toString());
+    }
+    return list;
   }
   /**
    * Escapes a {@code String} for usage in HTML attribute values.

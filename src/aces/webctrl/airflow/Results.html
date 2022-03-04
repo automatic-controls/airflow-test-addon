@@ -1,0 +1,160 @@
+<!--
+  BSD 3-Clause License
+  Copyright (c) 2022, Automatic Controls Equipment Systems, Inc.
+  Contributors: Cameron Vogt (@cvogt729)
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>
+      Airflow Results
+    </title>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+    <script>
+      function addRow(ID, status, rate, runtime, operator, close, open, timeout, finished){
+        const tr = document.createElement("TR");
+        const td_status = document.createElement("TD");
+        const td_rate = document.createElement("TD");
+        const td_runtime = document.createElement("TD");
+        const td_operator = document.createElement("TD");
+        const td_close = document.createElement("TD");
+        const td_open = document.createElement("TD");
+        const td_timeout = document.createElement("TD");
+        const td_actions = document.createElement("TD");
+        tr.appendChild(td_status);
+        tr.appendChild(td_rate);
+        tr.appendChild(td_runtime);
+        tr.appendChild(td_operator);
+        tr.appendChild(td_close);
+        tr.appendChild(td_open);
+        tr.appendChild(td_timeout);
+        tr.appendChild(td_actions);
+        td_status.innerText = status;
+        td_rate.innerText = rate;
+        td_runtime.innerText = runtime;
+        td_operator.innerText = operator;
+        td_close.innerText = close;
+        td_open.innerText = open;
+        td_timeout.innerText = timeout;
+        const cancelButton = document.createElement("BUTTON");
+        cancelButton.className = "e";
+        cancelButton.innerText = finished?"Delete":"Cancel";
+        cancelButton.onclick = ()=>{
+          if (!cancelButton.disabled){
+            cancelButton.disabled = true;
+            const req = new XMLHttpRequest();
+            req.open("POST","__PREFIX__records", true);
+            req.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+            req.onreadystatechange = function(){
+              if (this.readyState===4){
+                if (this.status===200){
+                  if (finished){
+                    window.location.href = "__PREFIX__records";
+                  }else{
+                    finished = true;
+                    cancelButton.innerText = "Delete";
+                    td_status.innerText = "Cancelled";
+                  }
+                }else{
+                  alert("Error Code "+this.status);
+                }
+                cancelButton.disabled = false;
+              }
+            };
+            req.send("type=cancel&ID="+ID);
+          }
+        };
+        td_actions.appendChild(cancelButton);
+        list.appendChild(tr);
+      }
+      function setImage(td, x){
+        const img = document.createElement("IMG");
+        img.style.height = "2em";
+        if (x===0){
+          img.src = "images/checkmark.png";
+        }else if (x===1){
+          img.src = "images/red_x.png";
+        }else if (x!==-1){
+          img.src = "images/warning.png";
+        }
+        td.appendChild(img);
+      }
+      function addTest(equipmentName, equipmentLink, closed, opened, start, end, min, max, ideal, error){
+        const tr = document.createElement("TR");
+        const td_equipment = document.createElement("TD");
+        const td_closed = document.createElement("TD");
+        const td_opened = document.createElement("TD");
+        const td_start = document.createElement("TD");
+        const td_end = document.createElement("TD");
+        const td_min = document.createElement("TD");
+        const td_max = document.createElement("TD");
+        const td_ideal = document.createElement("TD");
+        const td_error = document.createElement("TD");
+        flows.appendChild(td_equipment);
+        flows.appendChild(td_closed);
+        flows.appendChild(td_opened);
+        flows.appendChild(td_start);
+        flows.appendChild(td_end);
+        flows.appendChild(td_min);
+        flows.appendChild(td_max);
+        flows.appendChild(td_ideal);
+        flows.appendChild(td_error);
+        setImage(td_closed, closed);
+        setImage(td_opened, opened);
+        td_start.innerText = start;
+        td_end.innerText = end;
+        td_min.innerText = min;
+        td_max.innerText = max;
+        td_ideal.innerText = ideal;
+        td_error.innerText = error;
+        const link = document.createElement("A");
+        link.className = "e";
+        link.innerText = equipmentName;
+        link.setAttribute("href", equipmentLink)
+        link.setAttribute("target", "_blank")
+        td_equipment.appendChild(link);
+        flows.appendChild(tr);
+      }
+    </script>
+  </head>
+  <body>
+    <div style="text-align:center">
+      <h1>Airflow Test Results</h1>
+      <table id="list" style="margin:0 auto" class="nohighlight">
+        <tr>
+          <th>Status</th>
+          <th>Success Rate</th>
+          <th>Runtime</th>
+          <th>Operator</th>
+          <th>Closed Tolerance</th>
+          <th>Opened Tolerance</th>
+          <th>Response Timeout</th>
+          <th>Actions</th>
+        </tr>
+      </table>
+      <br>
+      <table id="flows" style="margin:0 auto" class="nohighlight">
+        <tr>
+          <th>Equipment</th>
+          <th>Closed Test</th>
+          <th>Opened Test</th>
+          <th>Start Time</th>
+          <th>End Time</th>
+          <th>Minimum Airflow</th>
+          <th>Maximum Airflow</th>
+          <th>Ideal Maximum</th>
+          <th>Error</th>
+        </tr>
+      </table>
+      <br>
+      <button class="e" onclick="location.reload()">Refresh</button><br>
+      <a href="__PREFIX__index">Configure New Test</a><br>
+      <a href="__PREFIX__records">View All Records</a><br>
+      <a target="_blank" href="https://github.com/automatic-controls/airflow-test-addon/blob/main/README.md">Documentation</a><br>
+    </div>
+    <script>
+      //__INIT_SCRIPT__
+      setTimeout(()=>{ location.reload(); }, 60000);
+    </script>
+  </body>
+</html>
