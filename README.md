@@ -18,4 +18,10 @@ This WebCTRL add-on measures airflow response after closing and opening selected
 
 1. Select relevant locations on the geographic tree. The add-on will test all airflow microblocks under the selected locations.
 
-1. Configure testing parameters. *Execution Delay* specifies how long to wait (in milliseconds) before initiating tests. *Damper Response Timeout* specifies how long to wait (in milliseconds) before measuring airflow response when the damper position is changed. When the damper is closed (locked to 0%), the measured airflow response must be sufficiently near to 0. When the damper is opened (locked to 100%), the measured airflow response must be sufficently near to the cooling max airflow design parameter (specified individually in each airflow microblock). The *Close Tolerance* and *Open Tolerance* percentages quantify the phrase *"sufficiently close"* in the previous two sentences.
+1. Configure testing parameters. *Execution Delay* specifies how long to wait (in milliseconds) before initiating tests. *Damper Response Timeout* specifies the maximum interval to wait (in milliseconds) before measuring airflow response when the damper position is changed. When the damper is closed (locked to 0%), the measured airflow response must be sufficiently near to 0. When the damper is opened (locked to 100%), the measured airflow response must be sufficently near to the cooling max airflow design parameter (specified individually in each airflow microblock). The *Close Tolerance* and *Open Tolerance* percentages quantify the phrase *"sufficiently close"*.
+
+1. Click the *Initiate Test* button. You will be redirected to a page where you can watch the test results populate.
+
+## Other Details
+
+Historical results of airflow tests are kept so long as the WebCTRL server remains active. If the server is restarted, all previous results are erased. Airflow may fluctuate slightly at a given damper position, so the add-on records the average airflow over 10 seconds. The *Close Tolerance* and *Open Tolerance* percentages are evaluated with respect to the ideal cooling maximum airflow.

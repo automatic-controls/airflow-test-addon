@@ -47,7 +47,7 @@ public class Records extends HttpServlet {
             }else if (complete){
               status = "Complete";
             }else{
-              status = "Working...";
+              status = "Working";
             }
             sb.append("addRow(\"").append(x.getID()).append("\",\"");
             sb.append(Utility.escapeJS(status)).append("\",\"");

@@ -15,6 +15,7 @@ public class Airflow {
   private volatile Node damperLockValue = null;
   private volatile Node maxFlow = null;
   private volatile Node currentFlow = null;
+  private volatile Node damperPosition = null;
   private volatile long startTime = -1;
   private volatile long endTime = -1;
   private volatile int minAirflow = -1;
@@ -27,6 +28,7 @@ public class Airflow {
   private volatile boolean openSuccess = false;
   private volatile boolean attempted = false;
   private volatile String equipment = null;
+  private volatile String root = null;
   /**
    * @return the error associated with this airflow, or {@code null} if no error has occurred.
    */
@@ -102,6 +104,12 @@ public class Airflow {
     return equipment;
   }
   /**
+   * @return an identifier string which may be used to get the airflow microblock Location.
+   */
+  public String getRoot(){
+    return root;
+  }
+  /**
    * Maps relevant airflow microblock nodes.
    * May be used inside a readAction without field-access.
    * @param root is any {@code Location} with a node-type of 270.
@@ -112,6 +120,7 @@ public class Airflow {
       return;
     }
     this.equipment = equipment.getPersistentLookupString(true);
+    this.root = root.getPersistentLookupString(true);
     for (Location l:root.getChildren()){
       if (l.getReferenceName().equals("flow_tab")){
         int x = 0;
@@ -132,6 +141,11 @@ public class Airflow {
               ++x;
               break;
             }
+            case "damper_position":{
+              damperPosition = n;
+              ++x;
+              break;
+            }
             case "lock_flags":{
               for (Node m:n.getChildren()){
                 if (m.getReferenceName().equals("damper")){
@@ -143,14 +157,14 @@ public class Airflow {
               break;
             }
           }
-          if (x==4){
+          if (x==5){
             break;
           }
         }
         break;
       }
     }
-    if (damperLockFlag==null || damperLockValue==null || maxFlow==null || currentFlow==null){
+    if (damperLockFlag==null || damperLockValue==null || maxFlow==null || currentFlow==null || damperPosition==null){
       setError(new NullPointerException("Failed to map airflow nodes."));
     }
   }
@@ -185,13 +199,15 @@ public class Airflow {
             }
           });
           if (error!=null || cancel.x || Initializer.isStopped()){ return; }
-          Utility.waitUntil(System.currentTimeMillis()+timeout);
-          if (cancel.x || Initializer.isStopped()){ return; }
+          waitUntil(con,cancel,timeout,0);
+          if (error!=null || cancel.x || Initializer.isStopped()){ return; }
+          minAirflow = readValue(con,cancel);
+          if (error!=null || cancel.x || Initializer.isStopped()){ return; }
+          closeSuccess = Math.abs(minAirflow)*100<=maxFlowValue*closeTolerance;
           con.runWriteAction(FieldAccessFactory.newFieldAccess(), "Initiating open damper test.", new WriteAction(){
             public void execute(WritableSystemAccess sys){
               if (cancel.x || Initializer.isStopped()){ return; }
               try{
-                minAirflow = parse(currentFlow.getValue());
                 damperLockValue.setValue("100");
               }catch(Throwable t){
                 setError(t);
@@ -199,14 +215,15 @@ public class Airflow {
             }
           });
           if (error!=null || cancel.x || Initializer.isStopped()){ return; }
-          closeSuccess = minAirflow*100<=maxFlowValue*closeTolerance;
-          Utility.waitUntil(System.currentTimeMillis()+timeout);
-          if (cancel.x || Initializer.isStopped()){ return; }
+          waitUntil(con,cancel,timeout,100);
+          if (error!=null || cancel.x || Initializer.isStopped()){ return; }
+          maxAirflow = readValue(con,cancel);
+          if (error!=null || cancel.x || Initializer.isStopped()){ return; }
+          openSuccess = Math.abs(maxAirflow-maxFlowValue)*100<=maxFlowValue*openTolerance;
           con.runWriteAction(FieldAccessFactory.newFieldAccess(), "Finalizing tests.", new WriteAction(){
             public void execute(WritableSystemAccess sys){
               if (cancel.x || Initializer.isStopped()){ return; }
               try{
-                maxAirflow = parse(currentFlow.getValue());
                 damperLockFlag.setValue(initialLockFlag);
                 initialLockFlag = null;
                 damperLockValue.setValue(initialLockValue);
@@ -217,7 +234,6 @@ public class Airflow {
             }
           });
           if (error!=null || cancel.x || Initializer.isStopped()){ return; }
-          openSuccess = maxFlowValue!=-1 && maxAirflow!=-1 && Math.abs(maxAirflow-maxFlowValue)*100<=maxFlowValue*openTolerance;
           testSuccess = true;
         }catch(Throwable t){
           setError(t);
@@ -250,6 +266,7 @@ public class Airflow {
         damperLockValue = null;
         maxFlow = null;
         currentFlow = null;
+        damperPosition = null;
         endTime = System.currentTimeMillis();
       }
     }else{
@@ -260,10 +277,48 @@ public class Airflow {
       damperLockValue = null;
       maxFlow = null;
       currentFlow = null;
+      damperPosition = null;
     }
     if (cancel.x){
       setError(new java.util.concurrent.CancellationException());
     }
+  }
+  private void waitUntil(final SystemConnection con, final Container<Boolean> cancel, final long timeout, final int position) throws Throwable {
+    final long expiry = System.currentTimeMillis()+timeout;
+    final Container<Boolean> loop = new Container<Boolean>(true);
+    while (loop.x && error==null && !cancel.x && !Initializer.isStopped() && System.currentTimeMillis()<expiry){
+      Thread.sleep(5000L);
+      if (cancel.x || Initializer.isStopped() || System.currentTimeMillis()>=expiry){ return; }
+      con.runReadAction(FieldAccessFactory.newFieldAccess(), new ReadAction(){
+        public void execute(SystemAccess sys){
+          if (cancel.x || Initializer.isStopped() || System.currentTimeMillis()>=expiry){ return; }
+          try{
+            loop.x = position!=parse(damperPosition.getValue());
+          }catch(Throwable t){
+            setError(t);
+          }
+        }
+      });
+    }
+  }
+  private int readValue(final SystemConnection con, final Container<Boolean> cancel) throws Throwable {
+    final Container<Double> d = new Container<Double>(0.0);
+    for (int i=0;i<10;++i){
+      if (error!=null || cancel.x || Initializer.isStopped()){ return -1; }
+      Thread.sleep(1000L);
+      if (cancel.x || Initializer.isStopped()){ return -1; }
+      con.runReadAction(FieldAccessFactory.newFieldAccess(), new ReadAction(){
+        public void execute(SystemAccess sys){
+          if (cancel.x || Initializer.isStopped()){ return; }
+          try{
+            d.x+=Double.parseDouble(currentFlow.getValue());
+          }catch(Throwable t){
+            setError(t);
+          }
+        }
+      });
+    }
+    return (int)Math.round(d.x/10);
   }
   /**
    * @return an integral representation of the given string.

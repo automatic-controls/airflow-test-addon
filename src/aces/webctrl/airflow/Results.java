@@ -55,7 +55,7 @@ public class Results extends HttpServlet {
             }else if (complete){
               status = "Complete";
             }else{
-              status = "Working...";
+              status = "Working";
             }
             sb.append("addRow(\"").append(x.getID()).append("\",\"");
             sb.append(Utility.escapeJS(status)).append("\",\"");
@@ -73,14 +73,12 @@ public class Results extends HttpServlet {
                 long start,end,min,max,ideal;
                 int close,open,w;
                 Throwable t;
-                Location loc;
                 for (Airflow a:x.getFlows()){
                   equipmentName = "NULL";
                   equipmentLink = "#";
                   try{
-                    loc = tree.resolve(a.getEquipment());
-                    equipmentName = loc.getRelativeDisplayPath(null);
-                    equipmentLink = Link.createLink(UITree.GEO, loc).getURL(req);
+                    equipmentName = tree.resolve(a.getEquipment()).getRelativeDisplayPath(null);
+                    equipmentLink = Link.createLink(UITree.GEO, tree.resolve(a.getRoot())).getURL(req);
                   }catch(Throwable tt){}
                   start = a.getStartTime();
                   end = a.getEndTime();
